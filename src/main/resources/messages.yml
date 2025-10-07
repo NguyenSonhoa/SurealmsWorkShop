@@ -1,0 +1,7 @@
+# CraftingManager messages
+crafting-already-crafting: "&cYou are already crafting an item!"
+crafting-started: "&aCrafting %item_name% for %time% seconds..."
+crafting-cancelled-player: "&cCrafting of %item_name% cancelled."
+crafting-not-crafting: "&cYou are not currently crafting anything."
+crafting-cancelled-server: "&cCrafting cancelled due to server shutdown/plugin reload."
+crafting-economy-disabled: "&cEconomy features are disabled. Cannot process money costs."

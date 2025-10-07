@@ -1,0 +1,68 @@
+# recipes.yml
+#
+# This file defines the recipes for the Cooking Workshop.
+#
+# Each recipe has a unique ID (e.g., 'BREAD').
+#
+# Recipe Structure:
+# <Recipe_ID>:
+#   output:
+#     # The item that will be crafted.
+#     # Can be a vanilla item or an MMOItem.
+#     material: <VANILLA_MATERIAL_NAME>  # For vanilla items
+#     mmoitem:
+#       type: <MMOITEM_TYPE>             # For MMOItems
+#       id: <MMOITEM_ID>
+#     amount: <amount> (optional, defaults to 1)
+#
+#   ingredients:
+#     # A list of ingredients required for the recipe.
+#     - slot: <GUI_SLOT> # The slot where the ingredient will be displayed in the crafting GUI.
+#       item:
+#         # The ingredient item.
+#         # Can be a vanilla item or an MMOItem.
+#         material: <VANILLA_MATERIAL_NAME>
+#         mmoitem:
+#           type: <MMOITEM_TYPE>
+#           id: <MMOITEM_ID>
+#         amount: <amount> (optional, defaults to 1)
+#
+#   sound: <SOUND_ID> (optional) # The sound to play when crafting. Or minecraft:etc.etc
+#   cost: <amount> (optional, defaults to 0) # The Vault cost to craft.
+#   craftingTime: <seconds> (optional, defaults to 0) # The time in seconds to craft.
+#   priority: <number> (optional, defaults to 0) # Lower numbers appear first in the GUI.
+recipes:
+  BREAD:
+    output:
+      material: BREAD
+      amount: 1
+    ingredients:
+      - slot: 12
+        item:
+          material: WHEAT
+          amount: 3
+    sound: "ENTITY_PLAYER_LEVELUP"
+    cost: 10
+    craftingTime: 5
+    priority: 0
+  STEEL_SWORD:
+    output:
+      mmoitem:
+        type: SWORD
+        id: STEEL_SWORD
+      amount: 1
+    ingredients:
+      - slot: 12
+        item:
+          mmoitem:
+            type: MATERIAL
+            id: STEEL_INGOT
+          amount: 2
+      - slot: 13
+        item:
+          material: STICK
+          amount: 1
+    sound: "BLOCK_ANVIL_USE"
+    cost: 50
+    craftingTime: 5
+    priority: 0

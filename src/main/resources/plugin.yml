@@ -1,0 +1,20 @@
+name: SurealmsWorkshop
+version: '1.0'
+main: me.sanenuyan.surealmsWorkshop.SurealmsWorkshop
+api-version: '1.21'
+softdepend:
+  - Vault
+  - MMOItems
+commands:
+  surealmsworkshop:
+    description: Main command for SurealmsWorkshop plugin, including cooking workshop.
+    usage: /surealmsworkshop [cooking]
+    aliases: [workshop]
+    permission: surealmsworkshop.use
+permissions:
+  surealmsworkshop.use:
+    description: Allows use of the SurealmsWorkshop command and its subcommands.
+    default: op
+  surealmsworkshop.command.cooking:
+    description: Allows use of the cooking subcommand within SurealmsWorkshop.
+    default: true
