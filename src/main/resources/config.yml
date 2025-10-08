@@ -1,86 +1,81 @@
-# ----------------------------------------------------------------
-# SurealmsWorkshop - Configuration
-# ----------------------------------------------------------------
-# You can use hex color codes like '&#RRGGBB' for modern colors.
-# Standard color codes like '&a', '&l' are also supported.
-
-# GUI Settings
-
+# config.yml
 cookingWorkshop:
-  guiSize: 54 # Size of the GUI (must be a multiple of 9)
-  guiTitle: "&8Cooking Workshop" # Title of the GUI for the recipe list
-  recipeDetailTitle: "&8Recipe Details" # Title of the GUI for a specific recipe's details
-  outputSlot: 30 # Slot for the output item
-  backButtonSlot: 0 # Slot for the back button
-  ingredientInputSlots: [18, 19, 27, 28, 36, 37] # Slots where players place ingredients
+  outputSlot: 30
+  backButtonSlot: 0
+  ingredientInputSlots:
+    - 18
+    - 19
+    - 27
+    - 28
+    - 36
+    - 37
+  recipeDisplaySlots:
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 19
+    - 20
+    - 21
+    - 22
+    - 23
+    - 24
+    - 25
+    - 28
+    - 29
+    - 30
+    - 31
+    - 32
+    - 33
+    - 34
+  cookingGuiRows: 6
+  guiClickSound: "ui.button.click"
+  guiClickSoundVolume: 1.0
+  guiClickSoundPitch: 1.0
+  craftingCustomModelData: 1000
 
-  # Slots where available recipes will be displayed in the Cooking Workshop GUI.
-  # These are 0-indexed slots in a 6x9 chest GUI.
-  # Ensure these slots do not conflict with navigation buttons or filler items.
-  recipeDisplaySlots: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 20, 21, 22, 23, 24, 25, 26, 29, 31, 32, 33, 34, 35, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53]
+  # GUI Titles
+  guiTitle: "&8Cooking Workshop"
+  recipeListTitle: "&8Cooking Recipes"
+  recipeDetailTitle: "&8Recipe: {recipe_name}"
 
-  # Lore messages for the output item
-  outputItemLore:
-    confirm: "&aClick to confirm recipe and place ingredients!"
-    craft: "&aClick to Craft!"
-    success: "&aCrafting successful!"
-    failure: "&cCrafting failed! Check ingredients."
-
-  # Item used for the back button
+  # GUI Item Configurations
   backButtonItem:
     material: ARROW
     name: "&aBack to Recipes"
     lore:
       - "&7Click to return to the recipe list."
-
-  # Item used for the next page button
   nextPageItem:
     material: ARROW
     name: "&aNext Page"
     lore:
       - "&7Click to view the next page of recipes."
-
-  # Item used for the previous page button
   prevPageItem:
     material: ARROW
     name: "&aPrevious Page"
     lore:
       - "&7Click to view the previous page of recipes."
-
-  # Item used for the craft button
-  craftButtonItem:
-    material: CRAFTING_TABLE
-    name: "&aCraft"
-    lore:
-      - "&7Click to craft the item."
-
-  # Item used for empty slots
   emptySlotItem:
     material: BLACK_STAINED_GLASS_PANE
     name: " "
-
-  # Item used for ingredient placeholders (ghost items)
+    lore: []
   ingredientPlaceholderItem:
     material: GRAY_STAINED_GLASS_PANE
     name: "&7Required Ingredient"
     lore:
       - "&7Place your ingredients here."
+  craftButtonItem:
+    material: ANVIL
+    name: "&aCraft"
+    lore:
+      - "&7Click to craft the selected recipe."
 
-  # Format for displaying craft time in item lore. Use {time} for the duration.
-  craftTimeLoreFormat: "&7Craft Time: &e{time} seconds"
-  craftCostLoreFormat: "&eCost: &f{cost}"
-# Message Settings
-messages:
-  reload_success: "&a&l[!] &aSuccessfully reloaded configuration and recipes."
-  no_permission: "&c&l[!] &cYou do not have permission to use this command."
-  player_not_found: "&c&l[!] &cPlayer not found: {player_name}"
-  craft_success: "&a&l[!] &aYou have successfully crafted {item_name}&a!"
-  craft_success_with_cost: "&a&l[!] &aYou have successfully crafted {item_name} &afor &e${cost}&a!"
-  not_enough_ingredients: "&c&l[!] &cYou do not have enough ingredients to craft this."
-  not_enough_money: "&c&l[!] &cYou do not have enough money to craft this! You need &e${cost}&c."
-
-# Sound Settings
-gui-click-sound:
-  sound: "UI_BUTTON_CLICK"
-  volume: 1.0
-  pitch: 1.0
+  # Output Item Lore
+  outputItemLore:
+    confirm: "&aClick to confirm recipe and place ingredients!"
+    craft: "&aClick to Craft!"
+    success: "&aCrafting successful!"
+    failure: "&cCrafting failed! Check ingredients."

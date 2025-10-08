@@ -10,5 +10,6 @@ data class CookingRecipe(
     val cost: Double,
     val sound: String?,
     val craftingTime: Int,
-    val priority: Int
+    val priority: Int,
+    val craftingMaterial: String?
 )

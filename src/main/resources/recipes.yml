@@ -17,7 +17,7 @@
 #
 #   ingredients:
 #     # A list of ingredients required for the recipe.
-#     - slot: <GUI_SLOT> # The slot where the ingredient will be displayed in the crafting GUI.
+#     - slot: <GUI_SLOT> 18, 19, 27, 28, 36, 37 # Slots where players place ingredients
 #       item:
 #         # The ingredient item.
 #         # Can be a vanilla item or an MMOItem.
@@ -37,7 +37,7 @@ recipes:
       material: BREAD
       amount: 1
     ingredients:
-      - slot: 12
+      - slot: 18
         item:
           material: WHEAT
           amount: 3
@@ -52,13 +52,13 @@ recipes:
         id: STEEL_SWORD
       amount: 1
     ingredients:
-      - slot: 12
+      - slot: 18
         item:
           mmoitem:
             type: MATERIAL
             id: STEEL_INGOT
           amount: 2
-      - slot: 13
+      - slot: 19
         item:
           material: STICK
           amount: 1

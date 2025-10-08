@@ -1,5 +1,6 @@
 package me.sanenuyan.surealmsWorkshop.workshops.cooking
 
+import me.sanenuyan.surealmsWorkshop.utils.ColorUtils
 import me.sanenuyan.surealmsWorkshop.utils.ConfigManager
 import org.bukkit.Bukkit
 import org.bukkit.entity.Player
@@ -73,6 +74,14 @@ class CookingWorkshopListener(private val workshop: CookingWorkshop) : Listener 
                                 if (itemMeta != null) {
                                     val recipeId = itemMeta.persistentDataContainer.get(RECIPE_ID_KEY, PersistentDataType.STRING)
                                     if (recipeId != null) {
+                                        // Check if the recipe is currently being crafted
+                                        if (workshop.craftingManager.isCrafting(player, recipeId)) {
+                                            // If crafting, attempt to cancel it
+                                            workshop.craftingManager.cancelCraft(player, recipeId)
+                                            workshop.openGUI(player) // Refresh RECIPE_LIST to update status
+                                            return // Prevent further processing
+                                        }
+
                                         val recipe = workshop.recipes.find { it.id == recipeId }
                                         if (recipe != null) {
                                             workshop.selectedRecipeMap[player.uniqueId] = recipe
@@ -139,7 +148,25 @@ class CookingWorkshopListener(private val workshop: CookingWorkshop) : Listener 
                                 workshop.openGUI(player)
                             } else if (rawSlot == ConfigManager.outputSlot) {
                                 workshop.craft(player, clickedInventory)
+                                // After crafting, set GUI state to RECIPE_LIST and open it
+                                workshop.selectedRecipeMap.remove(player.uniqueId) // Clear selected recipe
+                                workshop.guiState[player.uniqueId] = Pair(CookingWorkshop.GUIType.RECIPE_LIST, 0)
+                                workshop.openGUI(player)
                             }
+                        }
+                    }
+                    CookingWorkshop.GUIType.CRAFTING_IN_PROGRESS -> {
+                        // This block is now largely redundant as crafting actions will return to RECIPE_LIST.
+                        // The logic for cancelling craft is now handled in RECIPE_LIST.
+                        event.isCancelled = true
+                        val rawSlot = event.rawSlot
+                        if (rawSlot == ConfigManager.outputSlot) {
+                            // Player clicked the item being crafted, attempt to cancel
+                            // This logic is now handled in RECIPE_LIST
+                            // workshop.cancelCraft(player, clickedInventory)
+                        } else if (rawSlot == workshop.backButtonSlot && event.currentItem == workshop.backButtonItem) {
+                            // Player clicked the back button, close GUI without cancelling craft
+                            player.closeInventory()
                         }
                     }
                 }

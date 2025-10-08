@@ -32,6 +32,7 @@ class SurealmsWorkshop : JavaPlugin(), CommandExecutor, TabCompleter {
         }
 
         craftingManager = CraftingManager(this)
+        craftingManager.loadActiveCrafts() // Call loadActiveCrafts here
 
         cookingWorkshop = CookingWorkshop(this, craftingManager, VaultSupport.economy)
 

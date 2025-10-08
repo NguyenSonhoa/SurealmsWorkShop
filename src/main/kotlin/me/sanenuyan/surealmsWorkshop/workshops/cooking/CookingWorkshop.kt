@@ -9,6 +9,7 @@ import me.sanenuyan.surealmsWorkshop.workshops.Ingredient
 import me.sanenuyan.surealmsWorkshop.workshops.RecipeOutput
 import me.sanenuyan.surealmsWorkshop.workshops.VanillaIngredient
 import me.sanenuyan.surealmsWorkshop.workshops.VanillaOutput
+import org.bukkit.event.inventory.InventoryType
 import me.sanenuyan.surealmsWorkshop.hooks.MMOItemIngredient
 import net.milkbowl.vault.economy.Economy
 import org.bukkit.Bukkit
@@ -30,8 +31,9 @@ import me.sanenuyan.surealmsWorkshop.workshops.cooking.CookingRecipe
 import io.lumine.mythic.lib.api.item.NBTItem
 import net.Indyuce.mmoitems.util.MMOUtils
 import java.util.Locale
+import org.bukkit.scheduler.BukkitTask
 
-class CookingWorkshop(internal val plugin: SurealmsWorkshop, private val craftingManager: CraftingManager, private val economy: Economy?) {
+class CookingWorkshop(internal val plugin: SurealmsWorkshop, internal val craftingManager: CraftingManager, private val economy: Economy?) {
 
     internal val recipes = mutableListOf<CookingRecipe>()
     internal val openGUIs = mutableMapOf<UUID, Inventory>()
@@ -41,6 +43,8 @@ class CookingWorkshop(internal val plugin: SurealmsWorkshop, private val craftin
     private val mmoItemsSupport: MMOItemsSupport = MMOItemsSupport(plugin)
     internal val RECIPE_ID_KEY = NamespacedKey(plugin, "recipe_id")
     internal val RECIPE_LIST_GUI_KEY = NamespacedKey(plugin, "recipe_list_gui")
+    internal val CRAFTING_ITEM_CUSTOM_MODEL_DATA_KEY = NamespacedKey(plugin, "crafting_item_cmd")
+    internal val CRAFTING_CUSTOM_MODEL_DATA_VALUE = ConfigManager.craftingCustomModelData // Use value from ConfigManager
 
     internal val nextPageItem: ItemStack
     internal val prevPageItem: ItemStack
@@ -57,12 +61,16 @@ class CookingWorkshop(internal val plugin: SurealmsWorkshop, private val craftin
 
     internal val ingredientInputSlots = ConfigManager.ingredientInputSlots
 
-    enum class GUIType { RECIPE_LIST, SELECTED_RECIPE_SHOW_GHOSTS, SELECTED_RECIPE_PLACE_INGREDIENTS }
+    enum class GUIType { RECIPE_LIST, SELECTED_RECIPE_SHOW_GHOSTS, SELECTED_RECIPE_PLACE_INGREDIENTS, CRAFTING_IN_PROGRESS }
+    enum class IngredientCheckResult { SUCCESS, NOT_ENOUGH_INGREDIENTS, WRONG_SLOTS }
 
     private data class VanillaKey(val material: Material, val displayName: String?, val lore: List<String>?)
     private data class MMOItemKey(val type: String, val id: String)
 
+    private var guiRefreshTask: BukkitTask? = null
+
     init {
+        craftingManager.setCookingWorkshop(this) // Set the reference to this workshop
 
         nextPageItem = createItem(Material.matchMaterial(ConfigManager.nextPageItem.material) ?: Material.ARROW, ConfigManager.nextPageItem.name, ConfigManager.nextPageItem.lore)
         prevPageItem = createItem(Material.matchMaterial(ConfigManager.prevPageItem.material) ?: Material.ARROW, ConfigManager.prevPageItem.name, ConfigManager.prevPageItem.lore)
@@ -76,6 +84,7 @@ class CookingWorkshop(internal val plugin: SurealmsWorkshop, private val craftin
         )
 
         loadRecipes()
+        startGUIRefreshTask() // Start the refresh task
     }
 
     fun reload() {
@@ -106,6 +115,7 @@ class CookingWorkshop(internal val plugin: SurealmsWorkshop, private val craftin
                 val sound = recipeSection.getString("sound")
                 val craftingTime = recipeSection.getInt("craftingTime", 0)
                 val priority = recipeSection.getInt("priority", 0)
+                val craftingMaterial = recipeSection.getString("craftingMaterial") // Load craftingMaterial
 
                 recipeSection.getMapList("ingredients").forEach { ingredientMap ->
                     val slot = ingredientMap["slot"] as Int
@@ -116,13 +126,13 @@ class CookingWorkshop(internal val plugin: SurealmsWorkshop, private val craftin
                 }
 
                 if (ingredients.isEmpty()) {
-                    plugin.logger.warning("[CookingWorkshop] Recipe '$key' has no valid ingredients. Skipping.")
+                    plugin.logger.warning("[CookingWorkshop] Recipe \'$key\' has no valid ingredients. Skipping.")
                     continue
                 }
 
-                recipes.add(CookingRecipe(key, ingredients, output, cost, sound, craftingTime, priority))
+                recipes.add(CookingRecipe(key, ingredients, output, cost, sound, craftingTime, priority, craftingMaterial))
             } catch (e: Exception) {
-                plugin.logger.warning("[CookingWorkshop] Failed to load recipe '$key'. Error: ${e.message}")
+                plugin.logger.warning("[CookingWorkshop] Failed to load recipe \'$key\'. Error: ${e.message}")
             }
         }
 
@@ -184,16 +194,31 @@ class CookingWorkshop(internal val plugin: SurealmsWorkshop, private val craftin
                 val displayIndex = i - startIndex
                 if (displayIndex < ConfigManager.recipeDisplaySlots.size) {
                     val guiSlot = ConfigManager.recipeDisplaySlots[displayIndex]
-                    var itemWithLore = addCraftTimeLore(recipe.output.itemStack, recipe.craftingTime)
-                    itemWithLore = addCraftCostLore(itemWithLore, recipe.cost)
 
-                    val itemMeta = itemWithLore.itemMeta
-                    if (itemMeta != null) {
-                        itemMeta.persistentDataContainer.set(RECIPE_ID_KEY, PersistentDataType.STRING, recipe.id)
-                        itemWithLore.itemMeta = itemMeta
+                    // Use craftingMaterial if specified, otherwise fall back to output item's material
+                    val displayMaterial = recipe.craftingMaterial?.let { Material.matchMaterial(it) } ?: recipe.output.itemStack.type
+                    var itemToDisplay = createItem(displayMaterial, recipe.output.itemStack.itemMeta?.displayName, recipe.output.itemStack.itemMeta?.lore ?: emptyList())
+                    itemToDisplay.amount = recipe.output.itemStack.amount // Maintain original amount
+
+                    itemToDisplay = addCraftTimeLore(itemToDisplay, recipe.craftingTime)
+                    itemToDisplay = addCraftCostLore(itemToDisplay, recipe.cost)
+
+                    val meta = itemToDisplay.itemMeta ?: Bukkit.getItemFactory().getItemMeta(itemToDisplay.type)
+                    val lore = meta.lore?.toMutableList() ?: mutableListOf()
+
+                    if (craftingManager.isCrafting(player, recipe.id)) {
+                        val remainingTime = craftingManager.getRemainingCraftTime(player, recipe.id)
+                        lore.add(ConfigManager.craftingInProgressLore)
+                        lore.add(ConfigManager.craftingRemainingTimeLore.replace("{remainingTime}", remainingTime.toString()))
+                        lore.add(ConfigManager.craftingCancelLore) // Add cancellation lore
                     }
 
-                    inventory.setItem(guiSlot, itemWithLore)
+                    meta.lore = lore
+                    meta.persistentDataContainer.set(RECIPE_ID_KEY, PersistentDataType.STRING, recipe.id)
+                    meta.setCustomModelData(CRAFTING_CUSTOM_MODEL_DATA_VALUE)
+                    itemToDisplay.itemMeta = meta
+
+                    inventory.setItem(guiSlot, itemToDisplay)
                 }
             }
 
@@ -213,6 +238,28 @@ class CookingWorkshop(internal val plugin: SurealmsWorkshop, private val craftin
                 GUIType.SELECTED_RECIPE_PLACE_INGREDIENTS -> {
                     createSelectedRecipeGUI(player, selectedRecipe, false)
                     guiState[player.uniqueId] = Pair(GUIType.SELECTED_RECIPE_PLACE_INGREDIENTS, 0)
+                }
+                GUIType.CRAFTING_IN_PROGRESS -> {
+                    // If player is already crafting, reopen the GUI with the crafting item
+                    val craftingTask = craftingManager.getCraftingTask(player)
+                    if (craftingTask != null) {
+                        val guiHolder = CookingGUIHolder(RECIPE_LIST_GUI_KEY, ConfigManager.cookingGuiRows * 9, ConfigManager.recipeDetailTitle.replace("{recipe_name}", selectedRecipe.output.itemStack.itemMeta?.displayName ?: selectedRecipe.id))
+                        val inventory = guiHolder.inventory
+
+                        for (i in 0 until inventory.size) {
+                            inventory.setItem(i, fillerItem)
+                        }
+                        inventory.setItem(ConfigManager.outputSlot, craftingTask.craftingItem)
+                        inventory.setItem(ConfigManager.backButtonSlot, backButtonItem)
+
+                        openGUIs[player.uniqueId] = inventory
+                        player.openInventory(inventory)
+                    } else {
+                        // Crafting task not found, revert to recipe list
+                        selectedRecipeMap.remove(player.uniqueId)
+                        guiState.remove(player.uniqueId)
+                        openGUI(player)
+                    }
                 }
                 else -> {
                     createSelectedRecipeGUI(player, selectedRecipe, true)
@@ -304,11 +351,19 @@ class CookingWorkshop(internal val plugin: SurealmsWorkshop, private val craftin
             return
         }
 
-        if (!checkAndConsumeIngredients(player, guiInventory, recipe)) {
-            player.sendMessage(ConfigManager.notEnoughIngredientsMessage)
-
-            return
+        val result = checkAndConsumeIngredients(player, guiInventory, recipe)
+        when (result) {
+            IngredientCheckResult.SUCCESS -> { /* Continue to economy check */ }
+            IngredientCheckResult.NOT_ENOUGH_INGREDIENTS -> {
+                player.sendMessage(ConfigManager.notEnoughIngredientsMessage)
+                return
+            }
+            IngredientCheckResult.WRONG_SLOTS -> {
+                player.sendMessage(ConfigManager.ingredientsInWrongSlotMessage)
+                return
+            }
         }
+
 
         if (recipe.cost > 0) {
             if (economy == null) {
@@ -331,84 +386,124 @@ class CookingWorkshop(internal val plugin: SurealmsWorkshop, private val craftin
             }
         }
 
-        craftingManager.startCrafting(player, recipe.output.itemStack, recipe.craftingTime, recipe.id) {
+        // Prepare the item for crafting display
+        var craftingDisplayItem = recipe.output.itemStack.clone()
 
-            val itemName = recipe.output.itemStack.itemMeta?.displayName ?: recipe.id
-
-            if (recipe.cost > 0) {
-                player.sendMessage(ConfigManager.craftSuccessWithCostMessage
-                    .replace("{item_name}", itemName, ignoreCase = true)
-                    .replace("{cost}", recipe.cost.toString(), ignoreCase = true))
-            } else {
-                player.sendMessage(ConfigManager.craftSuccessMessage.replace("{item_name}", itemName, ignoreCase = true))
-            }
-
-            recipe.sound?.let { soundName ->
-                if (soundName.contains(":")) {
-
-                    try {
-                        player.playSound(player.location, soundName, 1.0f, 1.0f)
-                    } catch (e: Exception) {
-                        plugin.logger.warning("Failed to play custom sound '$soundName' for recipe '${recipe.id}': ${e.message}")
-                    }
-                }
-                else {
-
-                    try {
-                        val sound = Sound.valueOf(soundName.uppercase())
-                        player.playSound(player.location, sound, 1.0f, 1.0f)
-                    } catch (e: IllegalArgumentException) {
-                        plugin.logger.warning("Invalid built-in sound name '$soundName' in recipe '${recipe.id}'. Please check Spigot Sound enums.")
-                    }
-                }
-            }
-
-            player.closeInventory()
+        // Apply custom model data
+        val meta = craftingDisplayItem.itemMeta
+        if (meta != null) {
+            meta.setCustomModelData(CRAFTING_CUSTOM_MODEL_DATA_VALUE)
+            // Also store the recipe ID in the item's PDC for cancellation/identification
+            meta.persistentDataContainer.set(RECIPE_ID_KEY, PersistentDataType.STRING, recipe.id)
+            craftingDisplayItem.itemMeta = meta
         }
+
+        // Update the output slot with the crafting item
+        guiInventory.setItem(ConfigManager.outputSlot, craftingDisplayItem)
+
+        // Update GUI state to indicate crafting is in progress
+        guiState[player.uniqueId] = Pair(GUIType.CRAFTING_IN_PROGRESS, 0)
+
+        // Corrected call to startCrafting
+        craftingManager.startCrafting(player, recipe.id, recipe.output.itemStack.clone(), recipe.craftingTime)
+
+        // The callback logic for craft completion is now handled within CraftingManager.completeCraft
+        // and will send messages and give items directly.
+        // We no longer need the lambda here.
     }
 
-    private fun checkAndConsumeIngredients(player: Player, guiInventory: Inventory, recipe: CookingRecipe): Boolean {
+    fun onCraftComplete(player: Player) {
+        selectedRecipeMap.remove(player.uniqueId)
+        guiState.remove(player.uniqueId) // Clear the crafting in progress state
+        openGUIs.remove(player.uniqueId)
+        openGUI(player) // Reopen RECIPE_LIST
+    }
 
+    // Removed cancelCraft from here, it's now handled by CraftingManager
+
+    private fun checkAndConsumeIngredients(player: Player, guiInventory: Inventory, recipe: CookingRecipe): IngredientCheckResult {
+        // Strict check for correct placement
+        var isCorrectlyPlaced = true
         for ((slot, requiredIngredient) in recipe.ingredients) {
             val playerItem = guiInventory.getItem(slot)
-
-            if (playerItem == null || playerItem.type == Material.AIR) {
-                return false
-            }
-
-            if (playerItem.amount < requiredIngredient.amount) {
-                return false
-            }
-
-            val requiredKey = getCanonicalIngredientKey(requiredIngredient)
-            val playerItemKey = getCanonicalItemStackKey(playerItem)
-            if (requiredKey != playerItemKey) {
-                return false
+            if (playerItem == null || playerItem.amount < requiredIngredient.amount || getCanonicalIngredientKey(requiredIngredient) != getCanonicalItemStackKey(playerItem)) {
+                isCorrectlyPlaced = false
+                break
             }
         }
-
-        val requiredSlots = recipe.ingredients.keys
-        for (slot in ConfigManager.ingredientInputSlots) {
-            if (slot !in requiredSlots) {
-                val itemInSlot = guiInventory.getItem(slot)
-                if (itemInSlot != null && itemInSlot.type != Material.AIR) {
-                    return false
+        if (isCorrectlyPlaced) {
+            val requiredSlots = recipe.ingredients.keys
+            for (slot in ConfigManager.ingredientInputSlots) {
+                if (slot !in requiredSlots && guiInventory.getItem(slot) != null) {
+                    isCorrectlyPlaced = false
+                    break
                 }
             }
         }
 
-        for ((slot, requiredIngredient) in recipe.ingredients) {
-            val playerItem = guiInventory.getItem(slot)!!
-            playerItem.amount -= requiredIngredient.amount
-            if (playerItem.amount <= 0) {
-                guiInventory.setItem(slot, null)
-            } else {
-                guiInventory.setItem(slot, playerItem)
+        if (isCorrectlyPlaced) {
+            val droppedExcessItems = mutableListOf<ItemStack>()
+            for ((slot, requiredIngredient) in recipe.ingredients) {
+                val playerItem = guiInventory.getItem(slot) // Guaranteed not null and correct type/amount by isCorrectlyPlaced
+                if (playerItem != null) { // Defensive check, though should be true
+                    val requiredAmount = requiredIngredient.amount
+
+                    if (playerItem.amount > requiredAmount) {
+                        val excessAmount = playerItem.amount - requiredAmount
+                        val excessItem = playerItem.clone()
+                        excessItem.amount = excessAmount
+
+                        val leftovers = player.inventory.addItem(excessItem)
+                        if (leftovers.isNotEmpty()) {
+                            droppedExcessItems.addAll(leftovers.values)
+                        }
+                        playerItem.amount = requiredAmount // Reduce the amount in the GUI slot to the required amount
+                        guiInventory.setItem(slot, playerItem) // Update the item in the GUI
+                    } else { // playerItem.amount == requiredAmount
+                        guiInventory.setItem(slot, null) // Consume the exact amount by clearing the slot
+                    }
+                }
             }
+
+            if (droppedExcessItems.isNotEmpty()) {
+                droppedExcessItems.forEach { droppedItem ->
+                    player.world.dropItemNaturally(player.location, droppedItem)
+                }
+            }
+            player.updateInventory()
+            return IngredientCheckResult.SUCCESS
         }
 
-        player.updateInventory()
-        return true
+        // Lenient check for wrong slots
+        val playerItems = ConfigManager.ingredientInputSlots
+            .mapNotNull { guiInventory.getItem(it)?.clone() } // Use clones to avoid modifying original items
+            .toMutableList()
+
+        val requiredIngredients = recipe.ingredients.values.toMutableList()
+
+        if (playerItems.size != requiredIngredients.size) {
+            return IngredientCheckResult.NOT_ENOUGH_INGREDIENTS
+        }
+
+        val foundAllIngredients = requiredIngredients.all { required ->
+            val iterator = playerItems.iterator()
+            var foundMatch = false
+            while (iterator.hasNext()) {
+                val placed = iterator.next()
+                if (getCanonicalIngredientKey(required) == getCanonicalItemStackKey(placed) && placed.amount >= required.amount) {
+                    iterator.remove() // Consume the found item
+                    foundMatch = true
+                    break
+                }
+            }
+            foundMatch
+        }
+
+        return if (foundAllIngredients) {
+            IngredientCheckResult.WRONG_SLOTS
+        } else {
+            IngredientCheckResult.NOT_ENOUGH_INGREDIENTS
+        }
     }
 
     private fun getCanonicalIngredientKey(ingredient: Ingredient): Any {
@@ -487,5 +582,44 @@ class CookingWorkshop(internal val plugin: SurealmsWorkshop, private val craftin
         meta.lore = lore
         newItem.itemMeta = meta
         return newItem
+    }
+
+    fun startGUIRefreshTask() {
+        if (guiRefreshTask == null || guiRefreshTask?.isCancelled == true) {
+            guiRefreshTask = Bukkit.getScheduler().runTaskTimer(plugin, Runnable {
+                // This runs asynchronously, but GUI updates must be synchronous
+                Bukkit.getScheduler().runTask(plugin, Runnable {
+                    // Iterate through players who have a GUI open
+                    openGUIs.keys.forEach { uuid ->
+                        val player = Bukkit.getPlayer(uuid)
+                        if (player != null) {
+                            val guiStatePair = guiState[uuid]
+                            // Only refresh if they are in the RECIPE_LIST
+                            if (guiStatePair?.first == GUIType.RECIPE_LIST) {
+                                // Check if this player has *any* active craft
+                                val hasAnyActiveCraft = recipes.any { recipe ->
+                                    craftingManager.isCrafting(player, recipe.id)
+                                }
+                                if (hasAnyActiveCraft) {
+                                    // Reopen the GUI to refresh the lore
+                                    openGUI(player, guiStatePair.second)
+                                }
+                            }
+                        }
+                    }
+                })
+            }, 0L, 20L) // Run every second (20 ticks)
+        }
+    }
+
+    fun stopGUIRefreshTask() {
+        guiRefreshTask?.cancel()
+        guiRefreshTask = null
+    }
+
+    // This method should be called by the main plugin's onDisable method
+    fun disable() {
+        stopGUIRefreshTask()
+        // Any other cleanup for CookingWorkshop if needed
     }
 }

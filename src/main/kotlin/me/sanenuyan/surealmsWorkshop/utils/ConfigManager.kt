@@ -22,53 +22,62 @@ object ConfigManager {
     )
 
     // GUI General Settings
-    var guiSize: Int = 54
-    var guiTitle: String = "&8Cooking Workshop"
+    var guiTitle: String = ""
     var outputSlot: Int = 30
     var backButtonSlot: Int = 0
     var ingredientInputSlots: List<Int> = listOf(18, 19, 27, 28, 36, 37)
     var recipeDisplaySlots: List<Int> = emptyList()
-    var cookingGuiRows: Int = 6 // Added
-    var recipeListTitle: String = "&8Cooking Recipes" // Added
-    var recipeDetailTitle: String = "&8Recipe: {recipe_name}" // Added
-    var craftTimeLoreFormat: String = "&7Crafting Time: {time}s" // Added
-    var craftCostLoreFormat: String = "&eCost: &f{cost}"
+    var cookingGuiRows: Int = 6
+    var recipeListTitle: String = ""
+    var recipeDetailTitle: String = ""
     var guiClickSound: String = "ui.button.click"
     var guiClickSoundVolume: Float = 1.0f
     var guiClickSoundPitch: Float = 1.0f
+    var craftingCustomModelData: Int = 1000
 
-    // GUI Item Configurations
-    var backButtonItem: ItemConfig = ItemConfig("ARROW", "&aBack to Recipes", listOf("&7Click to return to the recipe list."))
-    var nextPageItem: ItemConfig = ItemConfig("ARROW", "&aNext Page", listOf("&7Click to view the next page of recipes."))
-    var prevPageItem: ItemConfig = ItemConfig("ARROW", "&aPrevious Page", listOf("&7Click to view the previous page of recipes."))
+    // GUI Item Configurations - Loaded from config.yml
+    var backButtonItem: ItemConfig = ItemConfig("ARROW", "", emptyList())
+    var nextPageItem: ItemConfig = ItemConfig("ARROW", "", emptyList())
+    var prevPageItem: ItemConfig = ItemConfig("ARROW", "", emptyList())
     var emptySlotItem: ItemConfig = ItemConfig("BLACK_STAINED_GLASS_PANE", " ")
-    var ingredientPlaceholderItem: ItemConfig = ItemConfig("GRAY_STAINED_GLASS_PANE", "&7Required Ingredient", listOf("&7Place your ingredients here."))
-    var craftButtonItem: ItemConfig = ItemConfig("ANVIL", "&aCraft", listOf("&7Click to craft the selected recipe.")) // Added
+    var ingredientPlaceholderItem: ItemConfig = ItemConfig("GRAY_STAINED_GLASS_PANE", "", emptyList())
+    var craftButtonItem: ItemConfig = ItemConfig("ANVIL", "", emptyList())
 
-    // Output Item Lore
+    // Output Item Lore - Loaded from config.yml
     var outputItemLore: OutputItemLoreConfig = OutputItemLoreConfig(
-        confirm = "&aClick to confirm recipe and place ingredients!",
-        craft = "&aClick to Craft!",
-        success = "&aCrafting successful!",
-        failure = "&cCrafting failed! Check ingredients."
+        confirm = "",
+        craft = "",
+        success = "",
+        failure = ""
     )
 
-    // General Messages
-    var reloadSuccessMessage: String = "&aSuccessfully reloaded the configuration and recipes."
-    var noPermissionMessage: String = "&cYou do not have permission to use this command."
-    var playerNotFoundMessage: String = "&cPlayer not found: {player_name}"
-    var craftSuccessMessage: String = "&aYou have successfully crafted {item_name}&a!"
-    var notEnoughIngredientsMessage: String = "&cYou do not have enough ingredients to craft this."
-    var craftSuccessWithCostMessage: String = "&aYou have successfully crafted {item_name}&a for &e{cost}&a!"
-    var notEnoughMoneyMessage: String = "&cYou don't have enough money to craft this! You need &e{cost}&c."
+    // Dynamic Lore Formats - Loaded from messages.yml
+    var craftTimeLoreFormat: String = ""
+    var craftCostLoreFormat: String = ""
 
-    // CraftingManager Messages
-    var craftingAlreadyCraftingMessage: String = "&cYou are already crafting an item!"
-    var craftingStartedMessage: String = "&aCrafting %item_name% for %time% seconds..."
-    var craftingCancelledPlayerMessage: String = "&cCrafting of %item_name% cancelled."
-    var craftingNotCraftingMessage: String = "&cYou are not currently crafting anything."
-    var craftingCancelledServerMessage: String = "&cCrafting cancelled due to server shutdown/plugin reload."
-    var craftingEconomyDisabledMessage: String = "&cEconomy features are disabled. Cannot process money costs."
+    // General Messages - Loaded from messages.yml
+    var reloadSuccessMessage: String = ""
+    var noPermissionMessage: String = ""
+    var playerNotFoundMessage: String = ""
+    var craftSuccessMessage: String = ""
+    var notEnoughIngredientsMessage: String = ""
+    var ingredientsInWrongSlotMessage: String = ""
+    var craftSuccessWithCostMessage: String = ""
+    var notEnoughMoneyMessage: String = ""
+
+    // CraftingManager Messages - Loaded from messages.yml
+    var craftingAlreadyCraftingMessage: String = ""
+    var craftingStartedMessage: String = ""
+    var craftingCancelledPlayerMessage: String = ""
+    var craftingNotCraftingMessage: String = ""
+    var craftingCancelledServerMessage: String = ""
+    var craftingEconomyDisabledMessage: String = ""
+    var craftingInProgressLore: String = ""
+    var craftingRemainingTimeLore: String = ""
+    var craftingCancelledLore: String = ""
+    var craftingCancelLore: String = ""
+    var craftingCancelledIngredientsReturnedMessage: String = ""
+    var craftingCancelledIngredientsDroppedMessage: String = ""
 
     private lateinit var messagesConfig: FileConfiguration
 
@@ -85,58 +94,68 @@ object ConfigManager {
         }
         messagesConfig = YamlConfiguration.loadConfiguration(messagesFile)
 
-        // Load GUI General Settings
-        guiSize = config.getInt("cookingWorkshop.guiSize", guiSize)
-        guiTitle = getString(config, "cookingWorkshop.guiTitle", guiTitle)
+        // Load GUI General Settings from config.yml (non-message related)
         outputSlot = config.getInt("cookingWorkshop.outputSlot", outputSlot)
         backButtonSlot = config.getInt("cookingWorkshop.backButtonSlot", backButtonSlot)
         ingredientInputSlots = config.getIntegerList("cookingWorkshop.ingredientInputSlots").ifEmpty { ingredientInputSlots }
         recipeDisplaySlots = config.getIntegerList("cookingWorkshop.recipeDisplaySlots").ifEmpty { recipeDisplaySlots }
-        cookingGuiRows = config.getInt("cookingWorkshop.cookingGuiRows", cookingGuiRows) // Added
-        recipeListTitle = getString(config, "cookingWorkshop.recipeListTitle", recipeListTitle) // Added
-        recipeDetailTitle = getString(config, "cookingWorkshop.recipeDetailTitle", recipeDetailTitle) // Added
-        craftTimeLoreFormat = getString(config, "cookingWorkshop.craftTimeLoreFormat", craftTimeLoreFormat) // Added
-        craftCostLoreFormat = getString(config, "cookingWorkshop.craftCostLoreFormat", craftCostLoreFormat)
+        cookingGuiRows = config.getInt("cookingWorkshop.cookingGuiRows", cookingGuiRows)
         guiClickSound = config.getString("cookingWorkshop.guiClickSound", guiClickSound) ?: guiClickSound
         guiClickSoundVolume = config.getDouble("cookingWorkshop.guiClickSoundVolume", guiClickSoundVolume.toDouble()).toFloat()
         guiClickSoundPitch = config.getDouble("cookingWorkshop.guiClickSoundPitch", guiClickSoundPitch.toDouble()).toFloat()
+        craftingCustomModelData = config.getInt("cookingWorkshop.craftingCustomModelData", craftingCustomModelData)
 
+        // Load GUI Titles from config.yml
+        guiTitle = getString(config, "cookingWorkshop.guiTitle", "&8Cooking Workshop")
+        recipeListTitle = getString(config, "cookingWorkshop.recipeListTitle", "&8Cooking Recipes")
+        recipeDetailTitle = getString(config, "cookingWorkshop.recipeDetailTitle", "&8Recipe: {recipe_name}")
 
-        // Load GUI Item Configurations
-        backButtonItem = loadItemConfig(config, "cookingWorkshop.backButtonItem", backButtonItem)
-        nextPageItem = loadItemConfig(config, "cookingWorkshop.nextPageItem", nextPageItem)
-        prevPageItem = loadItemConfig(config, "cookingWorkshop.prevPageItem", prevPageItem)
-        emptySlotItem = loadItemConfig(config, "cookingWorkshop.emptySlotItem", emptySlotItem)
-        ingredientPlaceholderItem = loadItemConfig(config, "cookingWorkshop.ingredientPlaceholderItem", ingredientPlaceholderItem)
-        craftButtonItem = loadItemConfig(config, "cookingWorkshop.craftButtonItem", craftButtonItem) // Added
+        // Load GUI Item Configurations from config.yml
+        backButtonItem = loadItemConfigFromConfig(config, "cookingWorkshop.backButtonItem", backButtonItem)
+        nextPageItem = loadItemConfigFromConfig(config, "cookingWorkshop.nextPageItem", nextPageItem)
+        prevPageItem = loadItemConfigFromConfig(config, "cookingWorkshop.prevPageItem", prevPageItem)
+        emptySlotItem = loadItemConfigFromConfig(config, "cookingWorkshop.emptySlotItem", emptySlotItem)
+        ingredientPlaceholderItem = loadItemConfigFromConfig(config, "cookingWorkshop.ingredientPlaceholderItem", ingredientPlaceholderItem)
+        craftButtonItem = loadItemConfigFromConfig(config, "cookingWorkshop.craftButtonItem", craftButtonItem)
 
-        // Load Output Item Lore
+        // Load Output Item Lore from config.yml
         outputItemLore = OutputItemLoreConfig(
-            confirm = getString(config, "cookingWorkshop.outputItemLore.confirm", outputItemLore.confirm),
-            craft = getString(config, "cookingWorkshop.outputItemLore.craft", outputItemLore.craft),
-            success = getString(config, "cookingWorkshop.outputItemLore.success", outputItemLore.success),
-            failure = getString(config, "cookingWorkshop.outputItemLore.failure", outputItemLore.failure)
+            confirm = getString(config, "cookingWorkshop.outputItemLore.confirm", "&aClick to confirm recipe and place ingredients!"),
+            craft = getString(config, "cookingWorkshop.outputItemLore.craft", "&aClick to Craft!"),
+            success = getString(config, "cookingWorkshop.outputItemLore.success", "&aCrafting successful!"),
+            failure = getString(config, "cookingWorkshop.outputItemLore.failure", "&cCrafting failed! Check ingredients.")
         )
 
-        // Load General Messages
-        reloadSuccessMessage = getString(config, "messages.reload_success", reloadSuccessMessage)
-        noPermissionMessage = getString(config, "messages.no_permission", noPermissionMessage)
-        playerNotFoundMessage = getString(config, "messages.player_not_found", playerNotFoundMessage)
-        craftSuccessMessage = getString(config, "messages.craft_success", craftSuccessMessage)
-        notEnoughIngredientsMessage = getString(config, "messages.not_enough_ingredients", notEnoughIngredientsMessage)
-        craftSuccessWithCostMessage = getString(config, "messages.craft_success_with_cost", craftSuccessWithCostMessage)
-        notEnoughMoneyMessage = getString(config, "messages.not_enough_money", notEnoughMoneyMessage)
+        // Load Dynamic Lore Formats from messages.yml
+        craftTimeLoreFormat = getMessagesString("craft-time-lore-format", "&7Crafting Time: {time}s")
+        craftCostLoreFormat = getMessagesString("craft-cost-lore-format", "&eCost: &f{cost}")
+
+        // Load General Messages from messages.yml
+        reloadSuccessMessage = getMessagesString("reload-success", "&aSuccessfully reloaded the configuration and recipes.")
+        noPermissionMessage = getMessagesString("no-permission", "&cYou do not have permission to use this command.")
+        playerNotFoundMessage = getMessagesString("player-not-found", "&cPlayer not found: {player_name}")
+        craftSuccessMessage = getMessagesString("craft-success", "&aYou have successfully crafted {item_name}&a!")
+        notEnoughIngredientsMessage = getMessagesString("not-enough-ingredients", "&cYou do not have enough ingredients to craft this.")
+        ingredientsInWrongSlotMessage = getMessagesString("ingredients-in-wrong-slot", "&cIngredients are in the wrong slots!")
+        craftSuccessWithCostMessage = getMessagesString("craft-success-with-cost", "&aYou have successfully crafted {item_name}&a for &e{cost}&a!")
+        notEnoughMoneyMessage = getMessagesString("not-enough-money", "&cYou don't have enough money to craft this! You need &e{cost}&c.")
 
         // Load CraftingManager Messages from messages.yml
-        craftingAlreadyCraftingMessage = getMessagesString("crafting-already-crafting", craftingAlreadyCraftingMessage)
-        craftingStartedMessage = getMessagesString("crafting-started", craftingStartedMessage)
-        craftingCancelledPlayerMessage = getMessagesString("crafting-cancelled-player", craftingCancelledPlayerMessage)
-        craftingNotCraftingMessage = getMessagesString("crafting-not-crafting", craftingNotCraftingMessage)
-        craftingCancelledServerMessage = getMessagesString("crafting-cancelled-server", craftingCancelledServerMessage)
-        craftingEconomyDisabledMessage = getMessagesString("crafting-economy-disabled", craftingEconomyDisabledMessage)
+        craftingAlreadyCraftingMessage = getMessagesString("crafting-already-crafting", "&cYou are already crafting an item!")
+        craftingStartedMessage = getMessagesString("crafting-started", "&aCrafting %item_name% for %time% seconds...")
+        craftingCancelledPlayerMessage = getMessagesString("crafting-cancelled-player", "&cCrafting of %item_name% cancelled.")
+        craftingNotCraftingMessage = getMessagesString("crafting-not-crafting", "&cYou are not currently crafting anything.")
+        craftingCancelledServerMessage = getMessagesString("crafting-cancelled-server", "&cCrafting cancelled due to server shutdown/plugin reload.")
+        craftingEconomyDisabledMessage = getMessagesString("crafting-economy-disabled", "&cEconomy features are disabled. Cannot process money costs.")
+        craftingInProgressLore = getMessagesString("crafting-in-progress-lore", "&eĐang chế tạo...")
+        craftingRemainingTimeLore = getMessagesString("crafting-remaining-time-lore", "&7Thời gian còn lại: &e{remainingTime}s")
+        craftingCancelledLore = getMessagesString("crafting-cancelled-lore", "&cĐã hủy chế tạo")
+        craftingCancelLore = getMessagesString("crafting-cancel-lore", "&cClick để hủy chế tạo")
+        craftingCancelledIngredientsReturnedMessage = getMessagesString("crafting-cancelled-ingredients-returned", "&aCraft cancelled. Ingredients returned to your inventory.")
+        craftingCancelledIngredientsDroppedMessage = getMessagesString("crafting-cancelled-ingredients-dropped", "&eCraft cancelled. Some ingredients were dropped on the ground due to full inventory.")
     }
 
-    private fun loadItemConfig(config: FileConfiguration, path: String, default: ItemConfig): ItemConfig {
+    private fun loadItemConfigFromConfig(config: FileConfiguration, path: String, default: ItemConfig): ItemConfig {
         val material = config.getString("$path.material", default.material) ?: default.material
         val name = getString(config, "$path.name", default.name)
         val lore = getStringList(config, "$path.lore", default.lore)
@@ -153,5 +172,9 @@ object ConfigManager {
 
     private fun getMessagesString(path: String, default: String): String {
         return ColorUtils.translateColors(messagesConfig.getString(path, default) ?: default)
+    }
+
+    private fun getMessagesStringList(path: String, default: List<String>): List<String> {
+        return (messagesConfig.getStringList(path).ifEmpty { default }).map { ColorUtils.translateColors(it) }
     }
 }

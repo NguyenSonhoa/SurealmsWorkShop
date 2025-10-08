@@ -28,4 +28,8 @@ object ColorUtils {
         }
         return result
     }
+
+    fun stripColor(text: String): String {
+        return ChatColor.stripColor(text)
+    }
 }
