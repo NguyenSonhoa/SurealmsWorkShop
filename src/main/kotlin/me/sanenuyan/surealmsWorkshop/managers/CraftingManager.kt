@@ -7,6 +7,7 @@ import me.sanenuyan.surealmsWorkshop.workshops.cooking.CookingGUIHolder
 import me.sanenuyan.surealmsWorkshop.workshops.cooking.CookingWorkshop // Import CookingWorkshop
 import org.bukkit.Bukkit
 import org.bukkit.NamespacedKey
+import org.bukkit.Sound
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
 import org.bukkit.inventory.meta.ItemMeta
@@ -221,6 +222,18 @@ class CraftingManager(private val plugin: SurealmsWorkshop) {
     private fun completeCraft(player: Player, recipeId: String, finalCraftedItem: ItemStack) {
         activeCrafts.remove(player.uniqueId)
         if (player.isOnline) {
+            val recipe = cookingWorkshop.recipes.find { it.id == recipeId }
+            recipe?.sound?.let { soundId ->
+                if (soundId.isNotBlank()) {
+                    try {
+                        val sound = Sound.valueOf(soundId.uppercase(Locale.ROOT))
+                        player.playSound(player.location, sound, 1.0f, 1.0f)
+                    } catch (e: IllegalArgumentException) {
+                        plugin.logger.warning("Invalid sound ID in recipe '$recipeId': $soundId")
+                    }
+                }
+            }
+
             player.inventory.addItem(finalCraftedItem)
             player.sendMessage(ConfigManager.craftSuccessMessage.replace("%item_name%", finalCraftedItem.itemMeta?.displayName ?: finalCraftedItem.type.name))
 

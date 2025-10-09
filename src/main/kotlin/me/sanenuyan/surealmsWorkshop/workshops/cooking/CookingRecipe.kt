@@ -11,5 +11,6 @@ data class CookingRecipe(
     val sound: String?,
     val craftingTime: Int,
     val priority: Int,
-    val craftingMaterial: String?
+    val craftingMaterial: String?,
+    val permissions: List<String>
 )

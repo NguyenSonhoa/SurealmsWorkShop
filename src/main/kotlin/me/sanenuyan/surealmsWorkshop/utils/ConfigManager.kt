@@ -11,7 +11,10 @@ object ConfigManager {
     data class ItemConfig(
         val material: String,
         val name: String,
-        val lore: List<String> = emptyList()
+        val lore: List<String> = emptyList(),
+        val itemModel: String? = null,
+        val customModelData: Int? = null,
+        val hideTooltip: Boolean = false
     )
 
     data class OutputItemLoreConfig(
@@ -25,6 +28,9 @@ object ConfigManager {
     var guiTitle: String = ""
     var outputSlot: Int = 30
     var backButtonSlot: Int = 0
+    var nextPageSlot: Int = 50
+    var prevPageSlot: Int = 48
+    var guideButtonSlot: Int = 8 // New: Guide button slot
     var ingredientInputSlots: List<Int> = listOf(18, 19, 27, 28, 36, 37)
     var recipeDisplaySlots: List<Int> = emptyList()
     var cookingGuiRows: Int = 6
@@ -34,11 +40,13 @@ object ConfigManager {
     var guiClickSoundVolume: Float = 1.0f
     var guiClickSoundPitch: Float = 1.0f
     var craftingCustomModelData: Int = 1000
+    var craftingMaterial: String = "CRAFTING_TABLE"
 
     // GUI Item Configurations - Loaded from config.yml
     var backButtonItem: ItemConfig = ItemConfig("ARROW", "", emptyList())
     var nextPageItem: ItemConfig = ItemConfig("ARROW", "", emptyList())
     var prevPageItem: ItemConfig = ItemConfig("ARROW", "", emptyList())
+    var guideButtonItem: ItemConfig = ItemConfig("BOOK", "", emptyList()) // New: Guide button item
     var emptySlotItem: ItemConfig = ItemConfig("BLACK_STAINED_GLASS_PANE", " ")
     var ingredientPlaceholderItem: ItemConfig = ItemConfig("GRAY_STAINED_GLASS_PANE", "", emptyList())
     var craftButtonItem: ItemConfig = ItemConfig("ANVIL", "", emptyList())
@@ -97,6 +105,9 @@ object ConfigManager {
         // Load GUI General Settings from config.yml (non-message related)
         outputSlot = config.getInt("cookingWorkshop.outputSlot", outputSlot)
         backButtonSlot = config.getInt("cookingWorkshop.backButtonSlot", backButtonSlot)
+        nextPageSlot = config.getInt("cookingWorkshop.nextPageSlot", nextPageSlot)
+        prevPageSlot = config.getInt("cookingWorkshop.prevPageSlot", prevPageSlot)
+        guideButtonSlot = config.getInt("cookingWorkshop.guideButtonSlot", guideButtonSlot) // New: Load guide button slot
         ingredientInputSlots = config.getIntegerList("cookingWorkshop.ingredientInputSlots").ifEmpty { ingredientInputSlots }
         recipeDisplaySlots = config.getIntegerList("cookingWorkshop.recipeDisplaySlots").ifEmpty { recipeDisplaySlots }
         cookingGuiRows = config.getInt("cookingWorkshop.cookingGuiRows", cookingGuiRows)
@@ -104,6 +115,7 @@ object ConfigManager {
         guiClickSoundVolume = config.getDouble("cookingWorkshop.guiClickSoundVolume", guiClickSoundVolume.toDouble()).toFloat()
         guiClickSoundPitch = config.getDouble("cookingWorkshop.guiClickSoundPitch", guiClickSoundPitch.toDouble()).toFloat()
         craftingCustomModelData = config.getInt("cookingWorkshop.craftingCustomModelData", craftingCustomModelData)
+        craftingMaterial = config.getString("cookingWorkshop.craftingMaterial", craftingMaterial) ?: craftingMaterial
 
         // Load GUI Titles from config.yml
         guiTitle = getString(config, "cookingWorkshop.guiTitle", "&8Cooking Workshop")
@@ -114,6 +126,7 @@ object ConfigManager {
         backButtonItem = loadItemConfigFromConfig(config, "cookingWorkshop.backButtonItem", backButtonItem)
         nextPageItem = loadItemConfigFromConfig(config, "cookingWorkshop.nextPageItem", nextPageItem)
         prevPageItem = loadItemConfigFromConfig(config, "cookingWorkshop.prevPageItem", prevPageItem)
+        guideButtonItem = loadItemConfigFromConfig(config, "cookingWorkshop.guideButtonItem", guideButtonItem) // New: Load guide button item
         emptySlotItem = loadItemConfigFromConfig(config, "cookingWorkshop.emptySlotItem", emptySlotItem)
         ingredientPlaceholderItem = loadItemConfigFromConfig(config, "cookingWorkshop.ingredientPlaceholderItem", ingredientPlaceholderItem)
         craftButtonItem = loadItemConfigFromConfig(config, "cookingWorkshop.craftButtonItem", craftButtonItem)
@@ -128,7 +141,7 @@ object ConfigManager {
 
         // Load Dynamic Lore Formats from messages.yml
         craftTimeLoreFormat = getMessagesString("craft-time-lore-format", "&7Crafting Time: {time}s")
-        craftCostLoreFormat = getMessagesString("craft-cost-lore-format", "&eCost: &f{cost}")
+        craftCostLoreFormat = getMessagesString("craft-cost-lore-format", "&eCost: {cost}")
 
         // Load General Messages from messages.yml
         reloadSuccessMessage = getMessagesString("reload-success", "&aSuccessfully reloaded the configuration and recipes.")
@@ -159,7 +172,10 @@ object ConfigManager {
         val material = config.getString("$path.material", default.material) ?: default.material
         val name = getString(config, "$path.name", default.name)
         val lore = getStringList(config, "$path.lore", default.lore)
-        return ItemConfig(material, name, lore)
+        val itemModel = config.getString("$path.item-model")
+        val customModelData = if (config.contains("$path.custom-model-data")) config.getInt("$path.custom-model-data") else null
+        val hideTooltip = config.getBoolean("$path.hide-tooltip", default.hideTooltip)
+        return ItemConfig(material, name, lore, itemModel, customModelData, hideTooltip)
     }
 
     private fun getString(config: FileConfiguration, path: String, default: String): String {

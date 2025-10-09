@@ -31,6 +31,7 @@ import me.sanenuyan.surealmsWorkshop.workshops.cooking.CookingRecipe
 import io.lumine.mythic.lib.api.item.NBTItem
 import net.Indyuce.mmoitems.util.MMOUtils
 import java.util.Locale
+import org.bukkit.inventory.ItemFlag
 import org.bukkit.scheduler.BukkitTask
 
 class CookingWorkshop(internal val plugin: SurealmsWorkshop, internal val craftingManager: CraftingManager, private val economy: Economy?) {
@@ -52,11 +53,12 @@ class CookingWorkshop(internal val plugin: SurealmsWorkshop, internal val crafti
     internal val backButtonItem: ItemStack
     internal val fillerItem: ItemStack
     internal val requiredIngredientItem: ItemStack
+    internal val guideButtonItem: ItemStack // New: Guide button item declaration
 
     internal val craftButtonSlot = 22
     internal val backButtonSlot = ConfigManager.backButtonSlot
-    internal val nextPageSlot = 26
-    internal val prevPageSlot = 18
+    internal val nextPageSlot = ConfigManager.nextPageSlot
+    internal val prevPageSlot = ConfigManager.prevPageSlot
     internal val recipesPerPage = 28
 
     internal val ingredientInputSlots = ConfigManager.ingredientInputSlots
@@ -71,18 +73,20 @@ class CookingWorkshop(internal val plugin: SurealmsWorkshop, internal val crafti
 
     init {
         craftingManager.setCookingWorkshop(this) // Set the reference to this workshop
-
-        nextPageItem = createItem(Material.matchMaterial(ConfigManager.nextPageItem.material) ?: Material.ARROW, ConfigManager.nextPageItem.name, ConfigManager.nextPageItem.lore)
-        prevPageItem = createItem(Material.matchMaterial(ConfigManager.prevPageItem.material) ?: Material.ARROW, ConfigManager.prevPageItem.name, ConfigManager.prevPageItem.lore)
-        craftButtonItem = createItem(Material.matchMaterial(ConfigManager.craftButtonItem.material) ?: Material.ANVIL, ConfigManager.craftButtonItem.name, ConfigManager.craftButtonItem.lore)
-        backButtonItem = createItem(Material.matchMaterial(ConfigManager.backButtonItem.material) ?: Material.BARRIER, ConfigManager.backButtonItem.name, ConfigManager.backButtonItem.lore)
-        fillerItem = createItem(Material.matchMaterial(ConfigManager.emptySlotItem.material) ?: Material.GRAY_STAINED_GLASS_PANE, ConfigManager.emptySlotItem.name, ConfigManager.emptySlotItem.lore)
+        guideButtonItem = createItem(Material.matchMaterial(ConfigManager.guideButtonItem.material) ?: Material.BOOK, ConfigManager.guideButtonItem.name, ConfigManager.guideButtonItem.lore, ConfigManager.guideButtonItem.itemModel, ConfigManager.guideButtonItem.customModelData, ConfigManager.guideButtonItem.hideTooltip) // New: Guide button item initialization
+        nextPageItem = createItem(Material.matchMaterial(ConfigManager.nextPageItem.material) ?: Material.ARROW, ConfigManager.nextPageItem.name, ConfigManager.nextPageItem.lore, ConfigManager.nextPageItem.itemModel, ConfigManager.nextPageItem.customModelData, ConfigManager.nextPageItem.hideTooltip)
+        prevPageItem = createItem(Material.matchMaterial(ConfigManager.prevPageItem.material) ?: Material.ARROW, ConfigManager.prevPageItem.name, ConfigManager.prevPageItem.lore, ConfigManager.prevPageItem.itemModel, ConfigManager.prevPageItem.customModelData, ConfigManager.prevPageItem.hideTooltip)
+        craftButtonItem = createItem(Material.matchMaterial(ConfigManager.craftButtonItem.material) ?: Material.ANVIL, ConfigManager.craftButtonItem.name, ConfigManager.craftButtonItem.lore, ConfigManager.craftButtonItem.itemModel, ConfigManager.craftButtonItem.customModelData, ConfigManager.craftButtonItem.hideTooltip)
+        backButtonItem = createItem(Material.matchMaterial(ConfigManager.backButtonItem.material) ?: Material.BARRIER, ConfigManager.backButtonItem.name, ConfigManager.backButtonItem.lore, ConfigManager.backButtonItem.itemModel, ConfigManager.backButtonItem.customModelData, ConfigManager.backButtonItem.hideTooltip)
+        fillerItem = createItem(Material.matchMaterial(ConfigManager.emptySlotItem.material) ?: Material.GRAY_STAINED_GLASS_PANE, ConfigManager.emptySlotItem.name, ConfigManager.emptySlotItem.lore, ConfigManager.emptySlotItem.itemModel, ConfigManager.emptySlotItem.customModelData, ConfigManager.emptySlotItem.hideTooltip)
         requiredIngredientItem = createItem(
             Material.matchMaterial(ConfigManager.ingredientPlaceholderItem.material) ?: Material.LIGHT_GRAY_STAINED_GLASS_PANE,
             ConfigManager.ingredientPlaceholderItem.name,
-            ConfigManager.ingredientPlaceholderItem.lore
+            ConfigManager.ingredientPlaceholderItem.lore,
+            ConfigManager.ingredientPlaceholderItem.itemModel,
+            ConfigManager.ingredientPlaceholderItem.customModelData,
+            ConfigManager.ingredientPlaceholderItem.hideTooltip
         )
-
         loadRecipes()
         startGUIRefreshTask() // Start the refresh task
     }
@@ -116,6 +120,17 @@ class CookingWorkshop(internal val plugin: SurealmsWorkshop, internal val crafti
                 val craftingTime = recipeSection.getInt("craftingTime", 0)
                 val priority = recipeSection.getInt("priority", 0)
                 val craftingMaterial = recipeSection.getString("craftingMaterial") // Load craftingMaterial
+                
+                val permissions: List<String>
+                val permsObject = recipeSection.get("permissions")
+                if (permsObject is List<*>) {
+                    permissions = recipeSection.getStringList("permissions")
+                } else if (permsObject is String) {
+                    permissions = listOf(permsObject)
+                } else {
+                    permissions = emptyList()
+                }
+
 
                 recipeSection.getMapList("ingredients").forEach { ingredientMap ->
                     val slot = ingredientMap["slot"] as Int
@@ -126,13 +141,13 @@ class CookingWorkshop(internal val plugin: SurealmsWorkshop, internal val crafti
                 }
 
                 if (ingredients.isEmpty()) {
-                    plugin.logger.warning("[CookingWorkshop] Recipe \'$key\' has no valid ingredients. Skipping.")
+                    plugin.logger.warning("[CookingWorkshop] Recipe '$key' has no valid ingredients. Skipping.")
                     continue
                 }
 
-                recipes.add(CookingRecipe(key, ingredients, output, cost, sound, craftingTime, priority, craftingMaterial))
+                recipes.add(CookingRecipe(key, ingredients, output, cost, sound, craftingTime, priority, craftingMaterial, permissions))
             } catch (e: Exception) {
-                plugin.logger.warning("[CookingWorkshop] Failed to load recipe \'$key\'. Error: ${e.message}")
+                plugin.logger.warning("[CookingWorkshop] Failed to load recipe '$key'. Error: ${e.message}")
             }
         }
 
@@ -144,17 +159,20 @@ class CookingWorkshop(internal val plugin: SurealmsWorkshop, internal val crafti
         val amount = section.getInt("amount", 1)
         val name = section.getString("name")
         val lore = section.getStringList("lore")
+        val itemModelString = section.getString("item-model")
+        val customModelData = if (section.contains("custom-model-data")) section.getInt("custom-model-data") else null
+        val hideTooltip = if (section.contains("hide-tooltip")) section.getBoolean("hide-tooltip") else null
 
         val materialName = section.getString("material")
         val mmoItemSection = section.getConfigurationSection("mmoitem")
 
         val displayItem = when {
             mmoItemSection != null -> {
-                createItem(Material.PAPER, name ?: "MMOItem", lore)
+                createItem(Material.PAPER, name ?: "MMOItem", lore, itemModelString, customModelData, hideTooltip)
             }
             materialName != null -> {
                 val material = Material.matchMaterial(materialName) ?: throw IllegalArgumentException("Invalid material: $materialName")
-                createItem(material, name, lore)
+                createItem(material, name, lore, itemModelString, customModelData, hideTooltip)
             }
             else -> throw IllegalArgumentException("Item must have a 'material' or 'mmoitem' section")
         }
@@ -179,26 +197,47 @@ class CookingWorkshop(internal val plugin: SurealmsWorkshop, internal val crafti
         val currentGuiState = guiState[player.uniqueId]
 
         if (selectedRecipe == null) {
-
-            val totalPages = if (recipes.isEmpty()) 1 else (recipes.size - 1) / recipesPerPage + 1
+            plugin.logger.info("--- Checking permissions for player: ${player.name} ---")
+            val accessibleRecipes = recipes.filter { recipe ->
+                val perms = recipe.permissions
+                plugin.logger.info("Checking recipe: ${recipe.id} with permissions: $perms")
+                if (perms.isEmpty()) {
+                    plugin.logger.info(" -> Recipe ${recipe.id} has no permissions, showing.")
+                    return@filter true
+                }
+                val hasRequiredPermission = perms.any { permission ->
+                    val hasPerm = player.hasPermission(permission)
+                    plugin.logger.info(" -> Checking permission '${permission}' for recipe ${recipe.id}... Player has permission: $hasPerm")
+                    hasPerm
+                }
+                plugin.logger.info(" -> Final decision for recipe ${recipe.id}: Show = $hasRequiredPermission")
+                hasRequiredPermission
+            }
+            plugin.logger.info("--- Finished checking permissions. Found ${accessibleRecipes.size} accessible recipes. ---")
+            
+            val totalPages = if (accessibleRecipes.isEmpty()) 1 else (accessibleRecipes.size - 1) / recipesPerPage + 1
             val guiHolder = CookingGUIHolder(RECIPE_LIST_GUI_KEY, ConfigManager.cookingGuiRows * 9, ConfigManager.recipeListTitle)
             val inventory = guiHolder.inventory
 
             for (i in 0 until ConfigManager.cookingGuiRows * 9) inventory.setItem(i, fillerItem)
 
             val startIndex = page * recipesPerPage
-            val endIndex = (startIndex + recipesPerPage).coerceAtMost(recipes.size)
+            val endIndex = (startIndex + recipesPerPage).coerceAtMost(accessibleRecipes.size)
 
             for (i in startIndex until endIndex) {
-                val recipe = recipes[i]
+                val recipe = accessibleRecipes[i]
                 val displayIndex = i - startIndex
                 if (displayIndex < ConfigManager.recipeDisplaySlots.size) {
                     val guiSlot = ConfigManager.recipeDisplaySlots[displayIndex]
 
-                    // Use craftingMaterial if specified, otherwise fall back to output item's material
-                    val displayMaterial = recipe.craftingMaterial?.let { Material.matchMaterial(it) } ?: recipe.output.itemStack.type
-                    var itemToDisplay = createItem(displayMaterial, recipe.output.itemStack.itemMeta?.displayName, recipe.output.itemStack.itemMeta?.lore ?: emptyList())
-                    itemToDisplay.amount = recipe.output.itemStack.amount // Maintain original amount
+                    // Clone the output item to preserve all NBT data (like MMOItems tags)
+                    var itemToDisplay = recipe.output.itemStack.clone()
+                    val isCurrentlyCrafting = craftingManager.isCrafting(player, recipe.id)
+
+                    if (isCurrentlyCrafting) {
+                        // If crafting, apply the special material from the global config
+                        Material.matchMaterial(ConfigManager.craftingMaterial)?.let { itemToDisplay.type = it }
+                    }
 
                     itemToDisplay = addCraftTimeLore(itemToDisplay, recipe.craftingTime)
                     itemToDisplay = addCraftCostLore(itemToDisplay, recipe.cost)
@@ -206,16 +245,16 @@ class CookingWorkshop(internal val plugin: SurealmsWorkshop, internal val crafti
                     val meta = itemToDisplay.itemMeta ?: Bukkit.getItemFactory().getItemMeta(itemToDisplay.type)
                     val lore = meta.lore?.toMutableList() ?: mutableListOf()
 
-                    if (craftingManager.isCrafting(player, recipe.id)) {
+                    if (isCurrentlyCrafting) {
                         val remainingTime = craftingManager.getRemainingCraftTime(player, recipe.id)
                         lore.add(ConfigManager.craftingInProgressLore)
                         lore.add(ConfigManager.craftingRemainingTimeLore.replace("{remainingTime}", remainingTime.toString()))
                         lore.add(ConfigManager.craftingCancelLore) // Add cancellation lore
+                        meta.setCustomModelData(CRAFTING_CUSTOM_MODEL_DATA_VALUE) // Set CMD only when crafting
                     }
 
                     meta.lore = lore
                     meta.persistentDataContainer.set(RECIPE_ID_KEY, PersistentDataType.STRING, recipe.id)
-                    meta.setCustomModelData(CRAFTING_CUSTOM_MODEL_DATA_VALUE)
                     itemToDisplay.itemMeta = meta
 
                     inventory.setItem(guiSlot, itemToDisplay)
@@ -228,6 +267,7 @@ class CookingWorkshop(internal val plugin: SurealmsWorkshop, internal val crafti
             if (page < totalPages - 1) {
                 inventory.setItem(nextPageSlot, nextPageItem)
             }
+            inventory.setItem(ConfigManager.guideButtonSlot, guideButtonItem) // New: Add guide button to recipe list GUI
 
             openGUIs[player.uniqueId] = inventory
             guiState[player.uniqueId] = Pair(GUIType.RECIPE_LIST, page)
@@ -249,8 +289,25 @@ class CookingWorkshop(internal val plugin: SurealmsWorkshop, internal val crafti
                         for (i in 0 until inventory.size) {
                             inventory.setItem(i, fillerItem)
                         }
-                        inventory.setItem(ConfigManager.outputSlot, craftingTask.craftingItem)
+                        
+                        // Prepare the item for crafting display
+                        var craftingDisplayItem = selectedRecipe.output.itemStack.clone()
+
+                        // Apply the global crafting material for display
+                        Material.matchMaterial(ConfigManager.craftingMaterial)?.let { craftingDisplayItem.type = it }
+
+                        // Apply custom model data
+                        val meta = craftingDisplayItem.itemMeta ?: Bukkit.getItemFactory().getItemMeta(craftingDisplayItem.type)
+                        if (meta != null) {
+                            meta.setCustomModelData(CRAFTING_CUSTOM_MODEL_DATA_VALUE)
+                            // Also store the recipe ID in the item's PDC for cancellation/identification
+                            meta.persistentDataContainer.set(RECIPE_ID_KEY, PersistentDataType.STRING, selectedRecipe.id)
+                            craftingDisplayItem.itemMeta = meta
+                        }
+
+                        inventory.setItem(ConfigManager.outputSlot, craftingDisplayItem)
                         inventory.setItem(ConfigManager.backButtonSlot, backButtonItem)
+                        inventory.setItem(ConfigManager.guideButtonSlot, guideButtonItem) // New: Add guide button to crafting in progress GUI
 
                         openGUIs[player.uniqueId] = inventory
                         player.openInventory(inventory)
@@ -327,6 +384,7 @@ class CookingWorkshop(internal val plugin: SurealmsWorkshop, internal val crafti
         inventory.setItem(ConfigManager.outputSlot, outputItemDisplay)
 
         inventory.setItem(ConfigManager.backButtonSlot, backButtonItem)
+        inventory.setItem(ConfigManager.guideButtonSlot, guideButtonItem) // New: Add guide button to selected recipe GUI
     }
 
     private fun createSelectedRecipeGUI(player: Player, selectedRecipe: CookingRecipe, showGhostItems: Boolean) {
@@ -389,8 +447,11 @@ class CookingWorkshop(internal val plugin: SurealmsWorkshop, internal val crafti
         // Prepare the item for crafting display
         var craftingDisplayItem = recipe.output.itemStack.clone()
 
+        // Apply the global crafting material for display
+        Material.matchMaterial(ConfigManager.craftingMaterial)?.let { craftingDisplayItem.type = it }
+
         // Apply custom model data
-        val meta = craftingDisplayItem.itemMeta
+        val meta = craftingDisplayItem.itemMeta ?: Bukkit.getItemFactory().getItemMeta(craftingDisplayItem.type)
         if (meta != null) {
             meta.setCustomModelData(CRAFTING_CUSTOM_MODEL_DATA_VALUE)
             // Also store the recipe ID in the item's PDC for cancellation/identification
@@ -544,13 +605,31 @@ class CookingWorkshop(internal val plugin: SurealmsWorkshop, internal val crafti
         return VanillaKey(itemStack.type, normalizedDisplayName, normalizedLore)
     }
 
-    internal fun createItem(material: Material, name: String?, lore: List<String> = emptyList()): ItemStack {
+    internal fun createItem(material: Material, name: String?, lore: List<String> = emptyList(), itemModelString: String? = null, customModelData: Int? = null, hideTooltip: Boolean? = null): ItemStack {
         val item = ItemStack(material)
         val meta = item.itemMeta ?: return item
         name?.let { meta.setDisplayName(ColorUtils.translateColors(it)) }
         if (lore.isNotEmpty()) {
             meta.lore = lore.map { ColorUtils.translateColors(it) }
         }
+
+        if (itemModelString != null) {
+            try {
+                val key = NamespacedKey.fromString(itemModelString.lowercase(Locale.getDefault()))
+                if (key != null) {
+                    meta.setItemModel(key)
+                }
+            } catch (e: IllegalArgumentException) {
+                plugin.logger.warning("[CookingWorkshop] Invalid ItemModel format: '$itemModelString'. It should be 'namespace:key'.")
+            }
+        }
+
+        customModelData?.let { meta.setCustomModelData(it) }
+
+        if (hideTooltip == true) {
+            meta.isHideTooltip = true
+        }
+
         item.itemMeta = meta
         return item
     }
@@ -594,15 +673,48 @@ class CookingWorkshop(internal val plugin: SurealmsWorkshop, internal val crafti
                         val player = Bukkit.getPlayer(uuid)
                         if (player != null) {
                             val guiStatePair = guiState[uuid]
-                            // Only refresh if they are in the RECIPE_LIST
-                            if (guiStatePair?.first == GUIType.RECIPE_LIST) {
-                                // Check if this player has *any* active craft
-                                val hasAnyActiveCraft = recipes.any { recipe ->
-                                    craftingManager.isCrafting(player, recipe.id)
-                                }
-                                if (hasAnyActiveCraft) {
-                                    // Reopen the GUI to refresh the lore
-                                    openGUI(player, guiStatePair.second)
+                            if (guiStatePair != null) {
+                                when (guiStatePair.first) {
+                                    GUIType.RECIPE_LIST -> {
+                                        // Check if this player has *any* active craft
+                                        val hasAnyActiveCraft = recipes.any { recipe ->
+                                            craftingManager.isCrafting(player, recipe.id)
+                                        }
+                                        if (hasAnyActiveCraft) {
+                                            // Reopen the GUI to refresh the lore
+                                            openGUI(player, guiStatePair.second)
+                                        }
+                                    }
+                                    GUIType.CRAFTING_IN_PROGRESS -> {
+                                        val recipe = selectedRecipeMap[uuid]
+                                        val inventory = player.openInventory.topInventory
+                                        if (recipe != null && inventory.holder is CookingGUIHolder) {
+                                            val craftingItem = inventory.getItem(ConfigManager.outputSlot)
+                                            if (craftingItem != null) {
+                                                var metaChanged = false
+                                                // Apply global craftingMaterial
+                                                Material.matchMaterial(ConfigManager.craftingMaterial)?.let { newMaterial ->
+                                                    if (craftingItem.type != newMaterial) {
+                                                        craftingItem.type = newMaterial
+                                                        metaChanged = true
+                                                    }
+                                                }
+
+                                                // Apply custom model data
+                                                val meta = craftingItem.itemMeta ?: Bukkit.getItemFactory().getItemMeta(craftingItem.type)
+                                                if (meta != null) {
+                                                    if (!meta.hasCustomModelData() || meta.customModelData != CRAFTING_CUSTOM_MODEL_DATA_VALUE) {
+                                                        meta.setCustomModelData(CRAFTING_CUSTOM_MODEL_DATA_VALUE)
+                                                        metaChanged = true
+                                                    }
+                                                    if (metaChanged) {
+                                                        craftingItem.itemMeta = meta
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    else -> {} // Do nothing for other states
                                 }
                             }
                         }

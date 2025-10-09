@@ -7,7 +7,7 @@
   reload-success: "&aSuccessfully reloaded the configuration and recipes."
   no-permission: "&cYou do not have permission to use this command."
   player-not-found: "&cPlayer not found: {player_name}"
-  craft-success: "&aYou have successfully crafted {item_name}&a!"
+  craft-success: "&aYou have successfully crafted %item_name%&a!"
   not-enough-ingredients: "&cYou do not have enough ingredients to craft this."
   ingredients-in-wrong-slot: "&cIngredients are in the wrong slots!"
   craft-success-with-cost: "&aYou have successfully crafted {item_name}&a for &e{cost}&a!"

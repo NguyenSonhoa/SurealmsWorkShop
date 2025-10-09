@@ -42,9 +42,10 @@ recipes:
           material: WHEAT
           amount: 3
     sound: "ENTITY_PLAYER_LEVELUP"
-    cost: 10
+    cost: 10s
     craftingTime: 5
     priority: 0
+    permissions: sasass.lol
   STEEL_SWORD:
     output:
       mmoitem:
@@ -65,4 +66,5 @@ recipes:
     sound: "BLOCK_ANVIL_USE"
     cost: 50
     craftingTime: 5
+    permissions: test
     priority: 0

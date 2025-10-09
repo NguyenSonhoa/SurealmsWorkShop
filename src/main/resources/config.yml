@@ -2,6 +2,9 @@
 cookingWorkshop:
   outputSlot: 30
   backButtonSlot: 0
+  prevPageSlot: 48
+  nextPageSlot: 50
+  guideButtonSlot: 8 # New guide button slot
   ingredientInputSlots:
     - 18
     - 19
@@ -36,6 +39,7 @@ cookingWorkshop:
   guiClickSoundVolume: 1.0
   guiClickSoundPitch: 1.0
   craftingCustomModelData: 1000
+  craftingMaterial: "CRAFTING_TABLE"
 
   # GUI Titles
   guiTitle: "&8Cooking Workshop"
@@ -46,22 +50,34 @@ cookingWorkshop:
   backButtonItem:
     material: ARROW
     name: "&aBack to Recipes"
+    custom-model-data: 1
+    #item-model: "minecraft:stone"
     lore:
       - "&7Click to return to the recipe list."
   nextPageItem:
     material: ARROW
     name: "&aNext Page"
+    custom-model-data: 1
     lore:
       - "&7Click to view the next page of recipes."
   prevPageItem:
     material: ARROW
     name: "&aPrevious Page"
+    custom-model-data: 1
     lore:
       - "&7Click to view the previous page of recipes."
+  guideButtonItem: # New guide button configuration
+    material: BOOK
+    name: "&eGuide"
+    custom-model-data: 1
+    lore:
+      - "&7Click to view the cooking guide."
+      - "&7Learn how to use the workshop."
   emptySlotItem:
     material: BLACK_STAINED_GLASS_PANE
     name: " "
     lore: []
+    hide-tooltip: true
   ingredientPlaceholderItem:
     material: GRAY_STAINED_GLASS_PANE
     name: "&7Required Ingredient"
