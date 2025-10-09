@@ -15,14 +15,15 @@
 
   # CraftingManager Messages
   crafting-already-crafting: "&cYou are already crafting an item!"
-  crafting-started: "&aCrafting %item_name% for %time% seconds..."
-  crafting-cancelled-player: "&cCrafting of %item_name% cancelled."
+  crafting-started: "&aWorking %item_name% for %time% seconds..."
+  crafting-cancelled-player: "&cWorking of %item_name% cancelled."
   crafting-not-crafting: "&cYou are not currently crafting anything."
-  crafting-cancelled-server: "&cCrafting cancelled due to server shutdown/plugin reload."
+  crafting-cancelled-server: "&cWorking cancelled due to server shutdown/plugin reload."
   crafting-economy-disabled: "&cEconomy features are disabled. Cannot process money costs."
   crafting-in-progress-lore: "&eĐang chế tạo..."
-  crafting-remaining-time-lore: "&7Thời gian còn lại: &e{remainingTime}s"
-  crafting-cancelled-lore: "&cĐã hủy chế tạo"
-  crafting-cancel-lore: "&cClick để hủy chế tạo"
-  crafting-cancelled-ingredients-returned: "&aChế tạo đã bị hủy. Nguyên liệu đã được trả lại vào kho của bạn."
-  crafting-cancelled-ingredients-dropped: "&eChế tạo đã bị hủy. Một số nguyên liệu đã bị rơi ra đất do kho đầy."
+  crafting-remaining-time-lore: "&7Working: &e{remainingTime}s"
+  crafting-cancelled-lore: "&cCancelled"
+  crafting-cancel-lore: "&cClick to cancel"
+  crafting-cancelled-ingredients-returned: "&aWorking cancelled, returned Ingredients."
+
+  crafting-cancelled-ingredients-dropped: "&eYour whole inventory was full, drop some trash please."
